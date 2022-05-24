@@ -6,6 +6,7 @@ import threading
 import time
 
 
+
 FRAME_HAS_PERSON = False
 LAST_CAMERA_FRAME = None
 DELAY_CAMERA= 0.001

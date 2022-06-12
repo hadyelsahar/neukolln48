@@ -1,20 +1,6 @@
 import cv2
 import torch
 
-# # capture frames from a camera with device index=0
-# cap = cv2.VideoCapture(0)
-# while True:
-#     # reads frame from a camera
-#     ret, camera_frame = cap.read()
-#     # Display the frame
-#     cv2.imshow('Camera',camera_frame)
-
-#     results = model(camera_frame)
-#     # Results
-#     df = results.pandas().xyxy[0]
-#     FRAME_HAS_PERSON = not df[df.name=="person"].empty
-#     print(f"camera frame {FRAME_HAS_PERSON}")
-
 model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
 
 # define a video capture object

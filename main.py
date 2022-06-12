@@ -13,11 +13,11 @@ import numpy as np
 FRAME_HAS_PERSON = False
 LAST_CAMERA_FRAME = None
 LAST_CAPTURED_OBJECT = None
-DELAY_CAMERA= 0.001
-DELAY_OBJECT_DETECTION = 0.001
-DELAY_VIDEO_PLAYING=0.1
+DELAY_CAMERA= 0.0
+DELAY_OBJECT_DETECTION = 0.0
+DELAY_VIDEO_PLAYING=0.0
 BREAK = False
-ZONES = {"OUT ZONE 1":(0,0.6),"IN ZONE 1":(0.6,0.7),"IN ZONE 2":(0.7,0.8),"IN ZONE 3":(0.8,0.9),"OUT ZONE 2":(0.9,1)}
+ZONES = {"OUT-1":(0,0.6),"IN-1":(0.6,0.7),"IN-2":(0.7,0.8),"IN-3":(0.8,0.9),"OUT-2":(0.9,1)}
 ######################
 # OBJECT RECOGNITION #
 ######################
@@ -28,9 +28,9 @@ def camera_capture(video_path=None):
     if video_path is not None:
         vid = cv2.VideoCapture(video_path)
         print("INFO::Reading from VIDEO {video_path}")
-        DELAY_CAMERA = 0.1
+        # DELAY_CAMERA = 0.1
     else:
-        vid = cv2.VideoCapture(1)
+        vid = cv2.VideoCapture(0)
         print("INFO::Reading from CAMERA")
 
     while not BREAK:
@@ -67,8 +67,7 @@ def annotate_locations(df, frame_shape, zones):
     locations = []
     for y in df.ymax:
         y = y / max_y
-        l = [z_name for z_name, z in ZONES.items() if  z[0] <= y <= z[1]]
-        print(l)
+        l = [z_name for z_name, z in ZONES.items() if  z[0] <= y <= z[1]][0]
         locations.append(l)
 
     df["locations"] = locations
@@ -105,41 +104,106 @@ def highlight_zones(frame, zones):
     return frame
 
 
-####################
-# VIDEO DISPLAYING #
-####################
+
+
+#######################################
+# VIDEO DISPLAYING 2 videos at a time #
+#######################################
+
+def which_zone(df):
+    """function takes a dataframe and decides how to resolve which video to play
+
+    Args:
+        df (pandas.dataframe): pandas dataframe that contains capture objects
+    Returns: 0,1,2,3 integer, 0 random , 1 left, 2 center and 3 right
+    """
+    if df is None: # no person in frame
+        return 0
+
+    df["IN"] = df.apply(lambda x: x.locations.split("-")[0] == "IN", axis=1)
+
+    ## todo: select the person closest
+    # in case of multiple people select the person closest to the center
+    ######
+
+    if len(df[df["IN"]]) > 0:
+        location = df[df["IN"]].locations.values[0].split("-")
+        return int(location[1])
+
+    else:
+        return 0 # all persons are in the OUT zone
+
+
 def display_video():
     global FRAME_HAS_PERSON, LAST_CAMERA_FRAME, DELAY_VIDEO_PLAYING, LAST_CAPTURED_OBJECT, BREAK
-    video1 = cv2.VideoCapture('./videos/1.mp4')
-    video2 = cv2.VideoCapture('./videos/2.mp4')
+
+    videos = {
+        0: {
+            "l": cv2.VideoCapture('./videos/Channel_0_Left.mp4'),
+            "r": cv2.VideoCapture('./videos/Channel_0_Right.mp4'),
+        },
+        1: {
+            "l": cv2.VideoCapture('./videos/Channel_1_Left.mp4'),
+            "r": cv2.VideoCapture('./videos/Channel_1_Right.mp4'),
+        },
+        2: {
+            "l": cv2.VideoCapture('./videos/Channel_1_Left.mp4'),
+            "r": cv2.VideoCapture('./videos/Channel_1_Right.mp4'),
+        },
+        3: {
+            "l": cv2.VideoCapture('./videos/Channel_1_Left.mp4'),
+            "r": cv2.VideoCapture('./videos/Channel_1_Right.mp4'),
+        }
+    }
+
+    # all videos are correctly loaded
+    for _, v in videos.items():
+        assert v["r"].isOpened() and v["l"].isOpened(), "video couldn't load"
+
+    out_monitor = "camera"
+    out_r = "video_r"
+    out_l = "video_l"
+
+    cv2.namedWindow(out_monitor, cv2.WINDOW_GUI_NORMAL)
+    cv2.namedWindow(out_r, cv2.WINDOW_GUI_NORMAL)
+    cv2.namedWindow(out_l, cv2.WINDOW_GUI_NORMAL)
 
 
-    while(video1.isOpened() and video2.isOpened() and not BREAK):
+    while not BREAK:
         # print(f"VIDEO FRAME while {FRAME_HAS_PERSON}")
         if LAST_CAMERA_FRAME is None:
             continue
 
-        cap = video1 if FRAME_HAS_PERSON else video2
-        ret, video_frame = cap.read()
+        df = None 
         if FRAME_HAS_PERSON:
             df = LAST_CAPTURED_OBJECT
-            df = df[df.name=="person"]
+            df = df[df.name=="person"].copy()
             df = annotate_locations(df, LAST_CAMERA_FRAME.shape, ZONES)
             print(df)
 
+        video_r = videos[which_zone(df)]["r"]
+        video_l = videos[which_zone(df)]["l"]
+        ret_r, video_frame_r = video_r.read()
+        ret_l, video_frame_l = video_l.read()
+
+
         LAST_CAMERA_FRAME = highlight_zones(LAST_CAMERA_FRAME, ZONES)
         if LAST_CAMERA_FRAME is not None:
-            cv2.imshow("camera", LAST_CAMERA_FRAME)
-        if ret:
-            cv2.imshow("video", video_frame)
+            cv2.imshow(out_monitor, LAST_CAMERA_FRAME)
+
+        if ret_r and ret_l:
+            cv2.imshow(out_r, video_frame_r)
+            cv2.imshow(out_l, video_frame_l)
         else:
             print('no video')
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            video_r.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            video_l.set(cv2.CAP_PROP_POS_FRAMES, 0)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
         time.sleep(DELAY_VIDEO_PLAYING)
 
-    cap.release()
+    video_r.release()
+    video_l.release()
     cv2.destroyAllWindows()
 
 

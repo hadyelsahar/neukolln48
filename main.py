@@ -10,7 +10,6 @@ import numpy as np
 #########################
 ####  GLOBAL PARAMS #####
 #########################
-FRAME_HAS_PERSON = False
 LAST_CAMERA_FRAME = None
 LAST_CAPTURED_OBJECT = None
 DELAY_CAMERA= 0
@@ -136,7 +135,7 @@ def highlight_zones(frame, zones):
 
 
 def display_video():
-    global FRAME_HAS_PERSON, LAST_CAMERA_FRAME, DELAY_VIDEO_PLAYING, LAST_CAPTURED_OBJECT, BREAK
+    global LAST_CAMERA_FRAME, DELAY_VIDEO_PLAYING, LAST_CAPTURED_OBJECT, BREAK
 
     videos = {
         0: {

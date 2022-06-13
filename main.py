@@ -30,7 +30,7 @@ def camera_capture(video_path=None):
         print("INFO::Reading from VIDEO {video_path}")
         # DELAY_CAMERA = 0.1
     else:
-        vid = cv2.VideoCapture(2)
+        vid = cv2.VideoCapture(int(args.camera))
         print("INFO::Reading from CAMERA")
 
     while not BREAK:
@@ -40,10 +40,10 @@ def camera_capture(video_path=None):
         # Display the resulting frame
         if ret:
             LAST_CAMERA_FRAME = frame
-            time.sleep(DELAY_CAMERA)
+        time.sleep(DELAY_CAMERA)
 
 def object_detection():
-    global FRAME_HAS_PERSON, LAST_CAMERA_FRAME, DELAY_OBJECT_DETECTION, LAST_CAPTURED_OBJECT, BREAK
+    global LAST_CAMERA_FRAME, DELAY_OBJECT_DETECTION, LAST_CAPTURED_OBJECT, BREAK
     model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
     # define a video capture object
     while not BREAK:
@@ -52,15 +52,14 @@ def object_detection():
             # Results
             df = results.pandas().xyxy[0]
             LAST_CAPTURED_OBJECT = df
-            FRAME_HAS_PERSON = not df[df.name=="person"].empty
 
-            # print(f"camera frame has person: {FRAME_HAS_PERSON}")
-            time.sleep(DELAY_OBJECT_DETECTION)
+        time.sleep(DELAY_OBJECT_DETECTION)
 
 
-#################
-# ZONES WORK ####
-#################
+####################
+# ZONES WORK LOGIC #
+####################
+
 def annotate_locations(df, frame_shape, zones):
     max_y, max_x, _ = frame_shape
     print(frame_shape)
@@ -72,6 +71,34 @@ def annotate_locations(df, frame_shape, zones):
 
     df["locations"] = locations
     return df
+
+def which_zone(df):
+    """function takes a dataframe and decides how to resolve which video to play
+
+    Args:
+        df (pandas.dataframe): pandas dataframe that contains capture objects
+    Returns: 0,1,2,3 integer, 0 random , 1 left, 2 center and 3 right
+    """
+
+    if df[df.name=="person"].empty: # no person in frame
+        return 0
+
+    else:
+        df = df[df.name=="person"].copy()
+        df = annotate_locations(df, LAST_CAMERA_FRAME.shape, ZONES)
+        print(df)
+        df["IN"] = df.apply(lambda x: x.locations.split("-")[0] == "IN", axis=1)
+
+        ## todo: select the person closest
+        # in case of multiple people select the person closest to the center
+        ######
+
+        if len(df[df["IN"]]) > 0:
+            location = df[df["IN"]].locations.values[0].split("-")
+            return int(location[1])
+
+        else:
+            return 0 # all persons are in the OUT zone
 
 def highlight_zones(frame, zones):
     y_max, x_max, _ = frame.shape
@@ -103,35 +130,9 @@ def highlight_zones(frame, zones):
         frame = out
     return frame
 
-
-
-
 #######################################
 # VIDEO DISPLAYING 2 videos at a time #
 #######################################
-
-def which_zone(df):
-    """function takes a dataframe and decides how to resolve which video to play
-
-    Args:
-        df (pandas.dataframe): pandas dataframe that contains capture objects
-    Returns: 0,1,2,3 integer, 0 random , 1 left, 2 center and 3 right
-    """
-    if df is None: # no person in frame
-        return 0
-
-    df["IN"] = df.apply(lambda x: x.locations.split("-")[0] == "IN", axis=1)
-
-    ## todo: select the person closest
-    # in case of multiple people select the person closest to the center
-    ######
-
-    if len(df[df["IN"]]) > 0:
-        location = df[df["IN"]].locations.values[0].split("-")
-        return int(location[1])
-
-    else:
-        return 0 # all persons are in the OUT zone
 
 
 def display_video():
@@ -172,17 +173,11 @@ def display_video():
 
 
     while not BREAK:
-        # print(f"VIDEO FRAME while {FRAME_HAS_PERSON}")
-        if LAST_CAMERA_FRAME is None:
+
+        if LAST_CAMERA_FRAME is None or LAST_CAPTURED_OBJECT is None:
             continue
 
-        df = None 
-        if FRAME_HAS_PERSON:
-            df = LAST_CAPTURED_OBJECT
-            df = df[df.name=="person"].copy()
-            df = annotate_locations(df, LAST_CAMERA_FRAME.shape, ZONES)
-            print(df)
-
+        df = LAST_CAPTURED_OBJECT.copy()
         video_r = videos[which_zone(df)]["r"]
         video_l = videos[which_zone(df)]["l"]
         ret_r, video_frame_r = video_r.read()
@@ -190,6 +185,7 @@ def display_video():
 
 
         LAST_CAMERA_FRAME = highlight_zones(LAST_CAMERA_FRAME, ZONES)
+
         if LAST_CAMERA_FRAME is not None:
             cv2.imshow(out_monitor, LAST_CAMERA_FRAME)
 
@@ -212,6 +208,8 @@ def display_video():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--video', metavar="v", default=None)
+    parser.add_argument('--camera', metavar="c", default=2, type=int)
+
     args = parser.parse_args()
     t1 = threading.Thread(target=camera_capture, args=(args.video,))
     t2 = threading.Thread(target=object_detection)

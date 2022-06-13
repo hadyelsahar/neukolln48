@@ -13,9 +13,9 @@ import numpy as np
 FRAME_HAS_PERSON = False
 LAST_CAMERA_FRAME = None
 LAST_CAPTURED_OBJECT = None
-DELAY_CAMERA= 0.0
-DELAY_OBJECT_DETECTION = 0.0
-DELAY_VIDEO_PLAYING=0.0
+DELAY_CAMERA= 0
+DELAY_OBJECT_DETECTION = 0
+DELAY_VIDEO_PLAYING=0
 BREAK = False
 ZONES = {"OUT-1":(0,0.6),"IN-1":(0.6,0.7),"IN-2":(0.7,0.8),"IN-3":(0.8,0.9),"OUT-2":(0.9,1)}
 ######################
@@ -30,7 +30,7 @@ def camera_capture(video_path=None):
         print("INFO::Reading from VIDEO {video_path}")
         # DELAY_CAMERA = 0.1
     else:
-        vid = cv2.VideoCapture(0)
+        vid = cv2.VideoCapture(2)
         print("INFO::Reading from CAMERA")
 
     while not BREAK:
@@ -164,9 +164,11 @@ def display_video():
     out_r = "video_r"
     out_l = "video_l"
 
-    cv2.namedWindow(out_monitor, cv2.WINDOW_GUI_NORMAL)
-    cv2.namedWindow(out_r, cv2.WINDOW_GUI_NORMAL)
-    cv2.namedWindow(out_l, cv2.WINDOW_GUI_NORMAL)
+    cv2.namedWindow(out_monitor, cv2.WND_PROP_FULLSCREEN)
+    cv2.namedWindow(out_r, cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty(out_r, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.namedWindow(out_l, cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty(out_l, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 
     while not BREAK:

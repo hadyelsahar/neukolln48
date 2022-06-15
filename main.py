@@ -147,12 +147,12 @@ def display_video():
             "r": cv2.VideoCapture('./videos/Channel_1_Right.mp4'),
         },
         2: {
-            "l": cv2.VideoCapture('./videos/Channel_1_Left.mp4'),
-            "r": cv2.VideoCapture('./videos/Channel_1_Right.mp4'),
+            "l": cv2.VideoCapture('./videos/Channel_3_Left.mp4'),
+            "r": cv2.VideoCapture('./videos/Channel_3_Right.mp4'),
         },
         3: {
-            "l": cv2.VideoCapture('./videos/Channel_1_Left.mp4'),
-            "r": cv2.VideoCapture('./videos/Channel_1_Right.mp4'),
+            "l": cv2.VideoCapture('./videos/Channel_2_Left.mp4'),
+            "r": cv2.VideoCapture('./videos/Channel_2_Right.mp4'),
         }
     }
 

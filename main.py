@@ -16,7 +16,7 @@ DELAY_CAMERA= 0
 DELAY_OBJECT_DETECTION = 0
 DELAY_VIDEO_PLAYING=0
 BREAK = False
-ZONES = {"OUT-1":(0,0.6),"IN-1":(0.6,0.7),"IN-2":(0.7,0.8),"IN-3":(0.8,0.9),"OUT-2":(0.9,1)}
+ZONES = {"OUT-1":(0,0.4),"IN-1":(0.4,0.5),"IN-2":(0.5,0.7),"IN-3":(0.7,0.9),"OUT-2":(0.9,1)}
 ######################
 # OBJECT RECOGNITION #
 ######################
@@ -26,8 +26,8 @@ def camera_capture(video_path=None):
 
     if video_path is not None:
         vid = cv2.VideoCapture(video_path)
-        print("INFO::Reading from VIDEO {video_path}")
-        # DELAY_CAMERA = 0.1
+        print(f"INFO::Reading from VIDEO {video_path}")
+        DELAY_CAMERA = 0.1
     else:
         vid = cv2.VideoCapture(int(args.camera))
         print("INFO::Reading from CAMERA")
@@ -41,9 +41,10 @@ def camera_capture(video_path=None):
             LAST_CAMERA_FRAME = frame
         time.sleep(DELAY_CAMERA)
 
-def object_detection():
+def object_detection(model_name):
     global LAST_CAMERA_FRAME, DELAY_OBJECT_DETECTION, LAST_CAPTURED_OBJECT, BREAK
-    model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+    print(f"Loading Model {args.model}")
+    model = torch.hub.load('ultralytics/yolov5', model_name, pretrained=True)
     # define a video capture object
     while not BREAK:
         if LAST_CAMERA_FRAME is not None:
@@ -92,10 +93,18 @@ def which_zone(df):
         # in case of multiple people select the person closest to the center
         ######
 
-        if len(df[df["IN"]]) > 0:
+        # only one person in the IN zone 
+        if len(df[df["IN"]]) == 1:
             location = df[df["IN"]].locations.values[0].split("-")
             return int(location[1])
-
+        # multiple people in the IN Zone select the one closest to the center of the camera frame
+        elif len(df[df["IN"]]) > 1:
+            _, max_x, _ = LAST_CAMERA_FRAME.shape
+            x_center = max_x / 2
+            df = df[df["IN"]]
+            df["distance_from_center"] = df.apply(lambda x: abs((x.xmin + x.xmax)/2 - x_center), axis=1)
+            location = df[df.distance_from_center == df.distance_from_center.min()].locations.values[0].split("-")
+            return int(location[1])
         else:
             return 0 # all persons are in the OUT zone
 
@@ -207,11 +216,12 @@ def display_video():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--video', metavar="v", default=None)
+    parser.add_argument('--model', metavar="v", default="yolov5s")
     parser.add_argument('--camera', metavar="c", default=2, type=int)
 
     args = parser.parse_args()
     t1 = threading.Thread(target=camera_capture, args=(args.video,))
-    t2 = threading.Thread(target=object_detection)
+    t2 = threading.Thread(target=object_detection, args=(args.model,))
     t1.start()
     t2.start()
     display_video()
